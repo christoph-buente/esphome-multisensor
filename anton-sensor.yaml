@@ -1,0 +1,174 @@
+!ssubstitutions:
+  devicename: anton-sensor
+  upper_devicename: Multisensor
+  room: Anton
+  
+esphome:
+  name: ${devicename}
+  comment: ${room} ${upper_devicename}
+
+esp8266:
+  board: nodemcuv2
+  framework:
+    version: recommended
+
+wifi:
+  networks:
+  - ssid: !secret wifi_ssid_not_center
+    password: !secret wifi_password_not_center
+  - ssid: !secret wifi_ssid_not_north
+    password: !secret wifi_password_not_north
+  - ssid: !secret wifi_ssid_not_south
+    password: !secret wifi_password_not_south
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Anton-Sensor Fallback Hotspot"
+    password: !secret ap_password
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: !secret ota_password
+  safe_mode: true
+  reboot_timeout: 10min
+  num_attempts: 5
+
+
+sensor:
+  - platform: dht
+    model: DHT22
+    pin: D7
+    temperature:
+      name: ${upper_devicename} ${room} Temperature
+      id: temperature_sensor
+    humidity:
+      name: ${upper_devicename} ${room} Humidity
+      id: humidity_sensor
+  - platform: template
+    name: ${upper_devicename} ${room} Taupunkt
+    lambda: |-
+      return (243.5*(log(id(humidity_sensor).state/100)+((17.67*id(temperature_sensor).state)/
+      (243.5+id(temperature_sensor).state)))/(17.67-log(id(humidity_sensor).state/100)-
+      ((17.67*id(temperature_sensor).state)/(243.5+id(temperature_sensor).state))));
+    unit_of_measurement: °C
+    update_interval: 5s
+    filters:
+      - sliding_window_moving_average:
+          window_size: 5
+          send_every: 5
+    icon: 'mdi:thermometer-water'
+  - platform: adc
+    pin: A0
+    name: ${upper_devicename} ${room} Brightness
+    id: light_sensor
+    unit_of_measurement: lux
+    update_interval: 2s
+    icon: "mdi:brightness-percent"
+    filters:
+      - lambda: |-
+          return (x * 3.3 / 10000.0) * 2000000.0;
+      - sliding_window_moving_average:
+          window_size: 5
+          send_every: 5
+  - platform: wifi_signal
+    name: ${upper_devicename} ${room} WiFi Signal
+    id: wifi_sensor
+    update_interval: 60s
+
+binary_sensor:
+  - platform: gpio
+    pin: D5
+    name: ${upper_devicename} ${room} Motion
+    id: motion_sensor
+    device_class: motion
+    filters:
+    - delayed_on: 100ms
+    - delayed_off: 1min
+    on_press:
+      then:
+        - light.turn_on:
+            id: sensor_led
+            transition_length: 0.5s
+            red: 1.0
+            green: 0.0
+            blue: 0.0
+            brightness: 50%
+    on_release:
+      then:
+        - light.turn_on:
+            id: sensor_led
+            transition_length: 0.5s
+            red: 0.0
+            green: 1.0
+            blue: 0.0
+            brightness: 20%
+  - platform: template
+    name: ${upper_devicename} ${room} Daylight
+    id: daylight_sensor
+    device_class: light
+    lambda: |-
+      if (id(light_sensor).state > 2) {
+        return true;
+      } else {
+        return false;
+      }   
+
+output:
+  - platform: esp8266_pwm
+    pin: D1
+    id: redgpio
+    max_power: 80%
+  - platform: esp8266_pwm
+    pin: D2
+    id: greengpio
+    max_power: 80%
+  - platform: esp8266_pwm
+    pin: D3
+    id: bluegpio
+    max_power: 80%
+
+light:
+  - platform: rgb
+    id: sensor_led
+    name: ${upper_devicename} ${room} LED
+    red: redgpio
+    green: greengpio
+    blue: bluegpio
+    effects:
+      # Use default parameters:
+      - random:
+      # Customize parameters
+      - random:
+          name: "Slow Random Effect"
+          transition_length: 15s
+          update_interval: 15s
+      - random:
+          name: "My Fast Random Effect"
+          transition_length: 4s
+          update_interval: 5s
+      - pulse:
+          name: "Fast Pulse"
+          transition_length: 0.5s
+          update_interval: 0.5s
+          
+# Sensors for ESP version and WIFI information
+text_sensor:
+  # ESPHome version
+  - platform: version
+    hide_timestamp: true
+    name: '${upper_devicename} ${room} - ESPHome Version'
+  # IP address and connected SSID
+  - platform: wifi_info
+    ip_address:
+      name: '${upper_devicename} ${room} - IP Address'
+      icon: mdi:wifi
+    ssid:
+      name: '${upper_devicename} ${room} - Connected SSID'
+      icon: mdi:wifi-strength-2
