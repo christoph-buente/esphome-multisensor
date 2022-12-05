@@ -1,4 +1,4 @@
-!ssubstitutions:
+substitutions:
   devicename: anton-sensor
   upper_devicename: Multisensor
   room: Anton
@@ -52,7 +52,7 @@ sensor:
       name: ${upper_devicename} ${room} Humidity
       id: humidity_sensor
   - platform: template
-    name: ${upper_devicename} ${room} Taupunkt
+    name: ${upper_devicename} ${room} Dewpoint
     lambda: |-
       return (243.5*(log(id(humidity_sensor).state/100)+((17.67*id(temperature_sensor).state)/
       (243.5+id(temperature_sensor).state)))/(17.67-log(id(humidity_sensor).state/100)-
