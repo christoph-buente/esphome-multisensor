@@ -1,7 +1,7 @@
 substitutions:
-  devicename: anton-sensor
+  devicename: lilly-sensor
   upper_devicename: Multisensor
-  room: Anton
+  room: Lilly
   
 dashboard_import:
   package_import_url: github://christoph-buente/esphome-multisensor/${devicename}.yaml
